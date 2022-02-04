@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
 ```
 
 # 1 Overview
-In this take-home exercise, we will explore interactivity and animation methods in designing an age-sex pyramid based data visualisation to show the changes of demographic structure of Singapore by age cohort and gender between 2000-2020 at planning area level.
+In this take-home exercise, we will explore interactivity and animation methods in designing an age-sex pyramid based data visualisation to show the changes of demographic structure of Singapore by age group and gender between 2000-2020 at planning area level.
 
 ## 1.1 Challenges Faced
 
