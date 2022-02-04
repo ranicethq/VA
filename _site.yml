@@ -22,6 +22,6 @@ navbar:
       menu:
       - text: "DataViz 1"
         href: DataViz1.html
-      - text: "DataViz 2"
+      - text: "DataViz 3"
         href: DataViz2.html
 output: distill::distill_article
