@@ -231,7 +231,7 @@ An interactive graph was then generated using *plotly()*. A tooltip was added us
 
 The *transforms - filter* function was used to filter the data for each plot by 2 variables - Year and Planning Area. Next, *layout - Updatemenus* and *layout - Sliders* was used to include the interactive widgets for the plot - a drop down menu for the planning areas and a slider bar for the years respectively.
 
-```{r, out.height='110%'}
+```{r, layout="l-body-outset"}
 plot_ly(sorted_pop00to20, 
         x = ~nCount, 
         y = ~AG,
