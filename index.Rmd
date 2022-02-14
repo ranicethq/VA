@@ -1,7 +1,9 @@
 ---
 title: "Visual Analytics"
 description: |
-  Welcome to the website. I hope you enjoy it!
+  Welcome to the website. This is still a work in progress, where data visualisations will be uploaded weekly.
+  
+  This website contains my journey of creating data visualisation beyond default, using R and Tableau. This is part of the ISSS608 course by SMU MITB program, by Prof Kam Tin Seong from Jan - Apr 2022. I hope you enjoy it!
 site: distill::distill_website
 ---
 
