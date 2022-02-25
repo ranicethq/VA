@@ -1,0 +1,229 @@
+---
+title: "Take-Home Exercise 4"
+description: |
+  Creating time-series visualisations.
+author:
+  - name: Ranice Tan 
+    url: https://www.linkedin.com/in/ranicetan/
+    affiliation: SMU MITB
+    affiliation_url: https://scis.smu.edu.sg/master-it-business
+date: "`r Sys.Date()`"
+output:
+  distill::distill_article:
+    code_folding: true
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE, results='asis'}
+options(htmltools.dir.version = FALSE, knitr.duplicate.label = "allow")
+knitr::opts_chunk$set(
+  fig.retina = 3,
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE)
+```
+
+# 1 Overview
+
+In this take-home exercise, we will explore the impact of COVID-19 on the stock prices of top 40 companies in Singapore by market capitalisation.
+
+# 1.1 Challenges Faced
+
++ The data extraction and cleaning required some effort as the company names had to be referenced from another table, and extracted using the *tidyquant* package. Some experimentation also had to be done to optimise the frequency of the data to be extracted, as daily data may lower the clarity due to minute fluctuations as compared to weekly data.
+
++ The horiplot required extensive customisation to make it aesthetically pleasing, such as the sizing of the text fonts, adjusting the scale of the colour and the origin of the graph. Furthermore, as a time series scale was used for the x-axis, the date labels required special customisation using the *scale_x_date* function.
+
++ Coming from a non-financial background, the task took abit of research to figure out financial terms and technical standards for stock market price monitoring. 
+
+# 2 Installing Packages
+
+The following packages and libraries were installed for this exercise:
+
++ **tidyverse** : A collection of core packages designed for data science, used extensively for
+data preparation and wrangling.
+
++ **knitr**: Package used for dynamic report generation
+
++ **rmarkdown**: To convert rmarkdown documents into a variety of format
+
++ **tidyquant**: Package that integrates quantitative resources for collecting and analyzing quantitative data
+
++ **lubridate**: Package used for manipulating date-time data
+
++ **ggthemes**: Package for extra themes for ggplot2
+
++ **data.table**: Package used for working with tabular data
+
++ **ggHoriplot**: A highly customizable R package for building horizon plots in ggplot2
+
+```{r}
+packages = c('tidyverse', 'knitr', 'rmarkdown', 'tidyquant', 'lubridate', 'ggthemes', 'data.table', 'ggHoriPlot')
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+# 3 Dataset
+
+The dataset used for this practice is the stock prices of  [top 40 companies in Singapore by market capitalisation](https://companiesmarketcap.com/singapore/largest-companies-in-singapore-by-market-cap/) between 1st January 2020 - 31st December 2021.
+
+## 3.1 Data Preparation
+
+The list of the top companies by market capitalisation was imported using the *read_csv* function.
+
+```{r}
+SGmarketcap <- read_csv("data/SGmarketcap.csv")
+
+kable(head(SGmarketcap))
+```
+
+Since the dataset is already ranked by market capitalisation, we can extract the Top 40 by using *head()*.
+
+```{r}
+top40 <- head(SGmarketcap, 40)
+```
+
+Only the columns containing the symbol and name of the company were extracted, and the columns were renamed in preparation for joining of tables later on.
+
+```{r}
+top40 <- top40[-c(1, 4:6)]
+top40 <- rename(top40, symbol = Symbol)
+top40 <- rename(top40, name = Name)
+
+kable(head(top40))
+```
+
+The company symbols and names were listed using *as.vector()* function according to the rank.
+
+```{r}
+top40_sym <- as.vector(top40$symbol)
+top40_name <- as.vector(top40$name)
+```
+
+Using the list of Top 40 symbols, the stock prices of the companies from 2020 to 2021 were extracted using the **tidyquant** package. Weekly period was used as it provides a longer term comparison compared to daily period, which may be too fluctuative to point out major trends.
+
+```{r}
+stock_data_weekly = tq_get(top40_sym,
+                          get = "stock.prices",
+                          from = "2020-01-01",
+                          to = "2021-12-31")%>%
+  group_by(symbol) %>%
+  tq_transmute(select     = NULL, 
+               mutate_fun = to.period, 
+               period  = "weeks")
+
+kable(head(stock_data_weekly))
+```
+
+# 3.2 Data Wrangling
+
+The weekly rate of change of stock price was calculated using the adjusted price. 
+
+```{r}
+stock_data_weekly$change <- ((stock_data_weekly$adjusted/shift(stock_data_weekly$adjusted)) - 1 )*100
+```
+
+Next, the names of the companies were added to the stock price dataset using *merge()*, because it is easier to identify name than symbols in the visualisation.
+
+```{r}
+stock_data_weekly <- merge(stock_data_weekly, top40, by = 'symbol')
+
+kable(head(stock_data_weekly))
+```
+
+Lastly, the rows were ordered by the name of the stock in descending order of the market capitalisation value.
+
+```{r}
+stock_data_weekly <- stock_data_weekly %>%
+  mutate(name =  factor(name, levels = top40_name)) %>%
+  arrange(name)
+
+kable(head(stock_data_weekly))
+```
+
+# 4 Visualisation
+
+[Horizon plots](https://en.wikipedia.org/wiki/Infographic) are a type or plots frequently used in time-series data to represent a moving value.
+
+The figure below shows a horizon plot using the **ggHoriplot** package. The palette 'RdBu' was used to provide the contrast between negative (red) and positive (blue) rate of change. Vertical x-intercept dashed-lines were added to represent key milestones in Singapore's covid-19 journey, which will be explained later on. 
+
+```{r, layout="l-body-outset"}
+ggplot() +
+  geom_horizon(aes(date, change),
+               data = stock_data_weekly,
+               origin = 0,
+               horizonscale = c(-15, -5, -1,  0,  1, 3, 5)) +
+  scale_fill_hcl(palette = 'RdBu') +
+  facet_grid(name~.)+
+   theme_few() +
+  theme(
+    panel.spacing.y=unit(0, "lines"),
+    plot.title = element_text(size=12),
+    plot.subtitle = element_text(size=9),
+    strip.text.y = element_text(size = 5, angle = 0, hjust = 0),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.x = element_text(size = 7, angle = 90, hjust = 0, vjust = 0.5),
+    axis.title.x = element_blank(),
+    panel.border = element_blank(),
+    legend.position="none"
+    ) +
+  scale_x_date(expand=c(0,0), 
+               date_breaks = "1 month", 
+               date_labels = "%b '%y",
+               limit=c(as.Date("2020-01-01"),as.Date("2021-12-31"))) +
+  xlab('Date') +
+  ggtitle('Stock Prices of Top 40 Companies in Singapore, 2020 to 2021', 
+          'Ranked by Market Capitalisation, Weekly Data') +
+  geom_vline(xintercept = as.Date("2020-02-07"), color = "limegreen", size = 1) +
+  geom_vline(xintercept = as.Date("2020-04-07"), color = "limegreen", size = 1) +
+  geom_vline(xintercept = as.Date("2020-06-02"), color = "limegreen", size = 1) +
+  geom_vline(xintercept = as.Date("2020-11-09"), color = "limegreen", size = 1) +
+  geom_vline(xintercept = as.Date("2021-05-08"), color = "limegreen", size = 1) + 
+  geom_vline(xintercept = as.Date("2021-10-09"), color = "limegreen", size = 1) +
+  geom_vline(xintercept = as.Date("2021-11-26"), color = "limegreen", size = 1) 
+```
+
+# 5 Conclusion
+
+#### **Initial Wave of COVID-19**
+
+On Feb 7 2020, COVID-19 Disease Outbreak Response System Condition (DORSCON) to orange, signalling that the disease is severe and there is widespread transmission from unknown sources. This is highest level ever reached since the SARS outbreak in 2003. The severity of the pandemic caused panic and uncertainty amongst business and citizens. More countries were also entering a lockdown state to contain the spread, disrupting global trade flows which exacerbated the market. Hence, spurring on the COVID-19 financial crash in March 2020, which not only impacted Singapore but all major stock markets as well. The March 2020 COVID-19 crash was a short-lived bear market, and in April 2020 stock markets re-entered a bull market. 
+
+#### **Circuit Breaker**
+
+On Apr 7 2020, the Singapore government took a drastic step and introduced the circuit breaker period, where citizens practised enhanced social distancing and isolation. Workplaces and schools closed and most shops shuttered. Businesses were badly impacted by the drop in footfall and consumption. However, the stock market seem to be recovering from the crash in March. One reason could be the implementation of the Budgets the Government has dedicated to support Singaporeans and businesses in the battle against COVID-19, which amounted close to $100 billion. Secondly, businesses were also adapting to the change in consumer patterns through contactless digital systems, which were well-received.
+
+On Jun 2 2020, the circuit breaker is eased and Singapore enters its first phase of reopening, where businesses and activities are progressively allowed to resume, giving rise to some semblance of normalcy. Hence, causing the stock price in the market to rise.
+
+#### **National Vaccination Campaign**
+
+In Nov 2020, Pfizer and BioNTech SE announced a vaccine candidate that has demonstrated evidence of efficacy against COVID-19. As the news brought about positivity of a potential return of normal activity, many shares of companies soared. Since Dec 2020, the National Vaccination Campaign commenced and in late 2021, Singapore became the world's most-vaccinated country, with more than 85% of its total population fully-vaccinated.
+
+#### **Delta wave of COVID-19**
+
+By May 2021, the Delta variant of COVID-19 had widely spread, causing several clusters across the nation. The re-opening efforts put forth by the Government were heldback, Singapore reverted back to Phase 2 from 8 May, which was subsequently tightened to Phase 2 Heightened Alert from 16 May. This tightening of measures caused the stock market prices to dip.
+
+#### **Cautious Re-opening with endemic COVID-19**
+
+Since then, the nation has acknowledged that the Zero-Covid strategy is no longer feasible due to highly infectious variants formed. It has engaged a cautions re-opening strategy to enable Singaporeans to resume their lives, participate in social activities, open the borders and revive the economy. One such example would be the Vaccinated Travel Lane (VTL) which allowed fully-vaccinated Singaporean citizens and permanent residents to return to Singapore without quarantine. On 9 Oct 2021, it was announced that Singapore would open up more VTLs with other countries, including South Korea and the United States. This saw some rise in the stock market prices, especially companies who stand to gain most such as Singapore Airlines and SATS.
+
+#### **Omicron Variant of COVID-19**
+
+On 26 Nov 2021, the World Health Organisation (WHO) announced the Omicron variant discovery of COVID-19. While there was some dip to the stock market prices, due to lack of information on the virus, the impact seems to be lower than the Delta and Alpha variant of the virus for most companies. 
+
+# 6 References
+
++ [tidyquant](https://giniceseah.netlify.app/posts/2021-06-18-scraping-of-financial-dataset/#tidyquant-package)
++ [ggHoriplot](https://rivasiker.github.io/ggHoriPlot/index.html)
++ [Price Rate of Change Indicator](https://www.investopedia.com/terms/p/pricerateofchange.asp)
++ [COVID-19 pandemic in Singapore](https://en.wikipedia.org/wiki/COVID-19_pandemic_in_Singapore)
++ [COVID-19 Singapore timeline milestones](https://www.asiaone.com/singapore/1-year-covid-19-singapore-timeline-milestones)
++ [Pfizer and BioNTech Announce Vaccine Candidate Against COVID-19](https://www.pfizer.com/news/press-release/press-release-detail/pfizer-and-biontech-announce-vaccine-candidate-against)
++ [Omicron WHO Update](https://www.who.int/news/item/28-11-2021-update-on-omicron)
